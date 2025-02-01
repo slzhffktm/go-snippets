@@ -34,6 +34,10 @@ type someStruct struct {
 	//			"mapInMap": map[string]time.Time{
 	//				"nestedKey": timeNow,
 	//			},
+	//			"substruct": subStruct{
+	//				TimeField:        timeNow,
+	//				TimeFieldPointer: copyTimeToPtr(timeNow),
+	//			},
 	//		},
 	MapStringAny map[string]any
 }
@@ -138,9 +142,9 @@ func TestNormalizeTime(t *testing.T) {
 		},
 	}
 
-	res := snippets.NormalizeTime(&obj)
+	snippets.NormalizeTime(&obj)
 
-	res.assertTimeFields(t, timeNow.Truncate(time.Second).UTC())
+	obj.assertTimeFields(t, timeNow.Truncate(time.Second).UTC())
 }
 
 func TestNormalizeTime_TimeParam(t *testing.T) {
