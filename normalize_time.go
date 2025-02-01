@@ -147,16 +147,3 @@ func normalizeTime(objVal reflect.Value) {
 		// Do nothing.
 	}
 }
-
-func getKind(v reflect.Value) reflect.Kind {
-	// Handle nil interfaces:
-	if v.Kind() == reflect.Interface && v.IsNil() {
-		return reflect.Invalid // Or some other appropriate indicator
-	}
-
-	if v.Kind() == reflect.Interface {
-		v = v.Elem() // Get the value *inside* the interface
-	}
-
-	return v.Kind()
-}
