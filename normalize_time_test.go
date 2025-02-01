@@ -27,7 +27,14 @@ type someStruct struct {
 	MapField               map[string]time.Time
 	MapToPointerField      map[string]*time.Time
 	MapToStructField       map[string]subStruct
-	MapStringAnyWithTime   map[string]any
+	// MapStringAny should be in this format:
+	// MapStringAny: map[string]any{
+	//			"key": timeNow,
+	//			"mapInMap": map[string]time.Time{
+	//				"nestedKey": timeNow,
+	//			},
+	//		},
+	MapStringAny map[string]any
 }
 
 func (s someStruct) assertTimeFields(t *testing.T, timeTest time.Time) {
@@ -59,9 +66,9 @@ func (s someStruct) assertTimeFields(t *testing.T, timeTest time.Time) {
 		require.Equal(t, timeTest, sub.TimeField)
 		require.Equal(t, timeTest, *sub.TimeFieldPointer)
 	}
-	for _, v := range s.MapStringAnyWithTime {
-		require.Equal(t, timeTest, v)
-	}
+	require.Equal(t, timeTest, s.MapStringAny["key"])
+	require.Equal(t, timeTest, s.MapStringAny["mapInMap"].(map[string]time.Time)["nestedKey"])
+	require.Equal(t, timeTest, s.MapStringAny["substruct"].(subStruct).TimeField)
 }
 
 func copyTimeToPtr(t time.Time) *time.Time {
@@ -105,20 +112,28 @@ func TestNormalizeTime(t *testing.T) {
 			},
 		},
 		TimeList: []time.Time{timeNow, timeNow},
-		//MapField: map[string]time.Time{
-		//	"key1": timeNow,
-		//},
-		//MapToPointerField: map[string]*time.Time{
-		//	"key1": copyTimeToPtr(timeNow),
-		//},
-		//MapToStructField: map[string]subStruct{
-		//	"key1": {
-		//		TimeField: timeNow,
-		//	},
-		//},
-		//MapStringAnyWithTime: map[string]any{
-		//	"key1": timeNow,
-		//},
+		MapField: map[string]time.Time{
+			"key1": timeNow,
+		},
+		MapToPointerField: map[string]*time.Time{
+			"key1": copyTimeToPtr(timeNow),
+		},
+		MapToStructField: map[string]subStruct{
+			"key1": {
+				TimeField:        timeNow,
+				TimeFieldPointer: copyTimeToPtr(timeNow),
+			},
+		},
+		MapStringAny: map[string]any{
+			"key": timeNow,
+			"mapInMap": map[string]time.Time{
+				"nestedKey": timeNow,
+			},
+			"substruct": subStruct{
+				TimeField:        timeNow,
+				TimeFieldPointer: copyTimeToPtr(timeNow),
+			},
+		},
 	}
 
 	snippets.NormalizeTime(&obj)

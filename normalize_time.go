@@ -1,7 +1,6 @@
 package snippets
 
 import (
-	"fmt"
 	"reflect"
 	"time"
 )
@@ -29,19 +28,12 @@ func normalizeTime(objVal reflect.Value) {
 		}
 		normalizeTime(objVal.Elem())
 	} else if objVal.Kind() == reflect.Struct {
-		// If struct, iterate through the fields & update time.Time.
-		fields := reflect.VisibleFields(objVal.Type())
-
-		// Iterate through the source fields
-		for _, field := range fields {
-			if field.Anonymous {
-				continue
-			}
-
-			fieldVal := objVal.FieldByName(field.Name)
-			normalizeTime(fieldVal)
+		// If struct, iterate through the fields.
+		for i := 0; i < objVal.NumField(); i++ {
+			f := objVal.Field(i)
+			normalizeTime(f)
 		}
-	} else if objVal.Kind() == reflect.Slice {
+	} else if objVal.Kind() == reflect.Array || objVal.Kind() == reflect.Slice {
 		// If slice, iterate through the elements.
 		for i := 0; i < objVal.Len(); i++ {
 			normalizeTime(objVal.Index(i))
@@ -49,9 +41,32 @@ func normalizeTime(objVal reflect.Value) {
 	} else if objVal.Kind() == reflect.Map {
 		// If map, iterate through the elements.
 		for _, key := range objVal.MapKeys() {
-			fmt.Println(key)
-			fmt.Println("ITSTIME", objVal.MapIndex(key))
-			normalizeTime(objVal.MapIndex(key))
+			value := objVal.MapIndex(key)
+			// Normalize time.Time fields.
+			// Map element is not settable, so we set it in place.
+			if reflect.TypeOf(value.Interface()) == reflect.TypeOf(time.Time{}) {
+				utc := value.Interface().(time.Time).Truncate(time.Second).UTC()
+				objVal.SetMapIndex(key, reflect.ValueOf(utc))
+				continue
+			}
+			// Pointer is settable, so we recurse right away.
+			if value.Kind() == reflect.Pointer {
+				// If pointer, go inside.
+				if value.IsNil() {
+					continue
+				}
+				normalizeTime(value.Elem())
+				continue
+			}
+
+			// Else, we need to create new value of the map element and recurse into it
+			// since map element is not settable.
+			newVal := reflect.New(value.Type()).Elem()
+			newVal.Set(value)
+			normalizeTime(newVal)
+			objVal.SetMapIndex(key, newVal)
 		}
+	} else if objVal.Kind() == reflect.Interface {
+		normalizeTime(objVal.Elem())
 	}
 }
