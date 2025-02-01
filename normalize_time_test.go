@@ -10,8 +10,9 @@ import (
 )
 
 type subStruct struct {
-	TimeField        time.Time
-	TimeFieldPointer *time.Time
+	TimeField             time.Time
+	TimeFieldPointer      *time.Time
+	TimeFieldPointerEmpty *time.Time
 }
 
 type someStruct struct {
@@ -69,6 +70,7 @@ func (s someStruct) assertTimeFields(t *testing.T, timeTest time.Time) {
 	require.Equal(t, timeTest, s.MapStringAny["key"])
 	require.Equal(t, timeTest, s.MapStringAny["mapInMap"].(map[string]time.Time)["nestedKey"])
 	require.Equal(t, timeTest, s.MapStringAny["substruct"].(subStruct).TimeField)
+	require.Equal(t, timeTest, *s.MapStringAny["substruct"].(subStruct).TimeFieldPointer)
 }
 
 func copyTimeToPtr(t time.Time) *time.Time {
@@ -136,9 +138,9 @@ func TestNormalizeTime(t *testing.T) {
 		},
 	}
 
-	snippets.NormalizeTime(&obj)
+	res := snippets.NormalizeTime(&obj)
 
-	obj.assertTimeFields(t, timeNow.Truncate(time.Second).UTC())
+	res.assertTimeFields(t, timeNow.Truncate(time.Second).UTC())
 }
 
 func TestNormalizeTime_TimeParam(t *testing.T) {
