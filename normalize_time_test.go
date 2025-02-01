@@ -24,6 +24,10 @@ type someStruct struct {
 	SubStructList          []subStruct
 	SubStructPointerToList *[]subStruct
 	TimeList               []time.Time
+	MapField               map[string]time.Time
+	MapToPointerField      map[string]*time.Time
+	MapToStructField       map[string]subStruct
+	MapStringAnyWithTime   map[string]any
 }
 
 func (s someStruct) assertTimeFields(t *testing.T, timeTest time.Time) {
@@ -44,6 +48,19 @@ func (s someStruct) assertTimeFields(t *testing.T, timeTest time.Time) {
 	}
 	for _, timeV := range s.TimeList {
 		require.Equal(t, timeTest, timeV)
+	}
+	for _, timeV := range s.MapField {
+		require.Equal(t, timeTest, timeV)
+	}
+	for _, timeV := range s.MapToPointerField {
+		require.Equal(t, timeTest, *timeV)
+	}
+	for _, sub := range s.MapToStructField {
+		require.Equal(t, timeTest, sub.TimeField)
+		require.Equal(t, timeTest, *sub.TimeFieldPointer)
+	}
+	for _, v := range s.MapStringAnyWithTime {
+		require.Equal(t, timeTest, v)
 	}
 }
 
@@ -88,6 +105,20 @@ func TestNormalizeTime(t *testing.T) {
 			},
 		},
 		TimeList: []time.Time{timeNow, timeNow},
+		//MapField: map[string]time.Time{
+		//	"key1": timeNow,
+		//},
+		//MapToPointerField: map[string]*time.Time{
+		//	"key1": copyTimeToPtr(timeNow),
+		//},
+		//MapToStructField: map[string]subStruct{
+		//	"key1": {
+		//		TimeField: timeNow,
+		//	},
+		//},
+		//MapStringAnyWithTime: map[string]any{
+		//	"key1": timeNow,
+		//},
 	}
 
 	snippets.NormalizeTime(&obj)

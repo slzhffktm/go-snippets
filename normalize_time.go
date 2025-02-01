@@ -1,12 +1,16 @@
 package snippets
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 )
 
 // NormalizeTime normalizes time.Time fields in a struct or a slice of structs to be second-only precision & in UTC.
 // It'll recurse into nested structs, arrays, and pointers.
+// To-add features:
+// - WithTimezone
+// - WithPrecision
 func NormalizeTime(obj any) {
 	if obj == nil {
 		return
@@ -35,24 +39,19 @@ func normalizeTime(objVal reflect.Value) {
 			}
 
 			fieldVal := objVal.FieldByName(field.Name)
-
-			// Normalize time.Time fields.
-			if fieldVal.Type().String() == "time.Time" {
-				utc := fieldVal.Interface().(time.Time).Truncate(time.Second).UTC()
-				fieldVal.Set(reflect.ValueOf(utc))
-				continue
-			}
-
-			// Recurse to field values.
-			if (objVal.Kind() == reflect.Struct) ||
-				(objVal.Kind() == reflect.Pointer && objVal.Type().Elem().Kind() == reflect.Struct) {
-				normalizeTime(fieldVal)
-			}
+			normalizeTime(fieldVal)
 		}
 	} else if objVal.Kind() == reflect.Slice {
 		// If slice, iterate through the elements.
 		for i := 0; i < objVal.Len(); i++ {
 			normalizeTime(objVal.Index(i))
+		}
+	} else if objVal.Kind() == reflect.Map {
+		// If map, iterate through the elements.
+		for _, key := range objVal.MapKeys() {
+			fmt.Println(key)
+			fmt.Println("ITSTIME", objVal.MapIndex(key))
+			normalizeTime(objVal.MapIndex(key))
 		}
 	}
 }
