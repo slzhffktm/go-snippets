@@ -132,7 +132,8 @@ func normalizeTime(value reflect.Value) reflect.Value {
 	case reflect.Array, reflect.Slice:
 		// Create copy.
 		newVal := reflect.New(value.Type()).Elem()
-		newVal.Set(value)
+		// Set empty value with the same length.
+		newVal.Set(reflect.MakeSlice(value.Type(), value.Len(), value.Len()))
 
 		// If array/slice, iterate through the elements.
 		for i := 0; i < value.Len(); i++ {

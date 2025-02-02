@@ -154,7 +154,10 @@ func TestNormalizeTime_TimeParam(t *testing.T) {
 	timeNow := time.Now().Local()
 	obj := timeNow
 
-	snippets.NormalizeTime[someStruct](obj)
+	res := snippets.NormalizeTime[time.Time](obj)
 
-	require.Equal(t, timeNow.Truncate(time.Second).UTC(), obj)
+	// Assert res is normalized.
+	require.Equal(t, timeNow.Truncate(time.Second).UTC(), res)
+	// Assert original obj is not modified.
+	require.Equal(t, timeNow, obj)
 }
