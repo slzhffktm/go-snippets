@@ -1,29 +1,20 @@
 package snippets
 
-import (
-	"reflect"
-	"time"
-)
+import "reflect"
 
-// NormalizeTime normalizes time.Time fields in a struct or a slice of structs to be second-only precision & in UTC.
-// It'll recurse into nested structs, arrays, and pointers.
-// It returns the normalized object.
-// To-add features:
-// - WithTimezone
-// - WithPrecision
-func NormalizeTime[T any](obj any) T {
-	res := normalizeTime(reflect.ValueOf(obj))
-	return res.Interface().(T)
+const scrubbedField = "***scrubbed***"
+
+// ScrubFields replaces the values of the fields in the given map with "***scrubbed***"
+// if the field name is in the blacklist key.
+// The blacklist is in map[string]struct{} to improve the lookup time.
+// Make sure that the blacklist key is in lowercase.
+// It'll recurse into nested maps & convert all struct into map to make all fields scrub-able.
+func ScrubFields(fields map[string]any, blacklist map[string]struct{}) map[string]any {
+	return scrubFields(reflect.ValueOf(fields), blacklist).Interface().(map[string]any)
 }
 
-func normalizeTime(value reflect.Value) reflect.Value {
-	if value.Type() == reflect.TypeOf(time.Time{}) {
-		newVal := reflect.New(value.Type()).Elem()
-
-		utc := value.Interface().(time.Time).Truncate(time.Second).UTC()
-		newVal.Set(reflect.ValueOf(utc))
-		return newVal
-	}
+func scrubFields(value reflect.Value, blacklist map[string]struct{}) reflect.Value {
+	scrubbedFieldVal := reflect.ValueOf(scrubbedField)
 
 	switch value.Kind() {
 	case reflect.Pointer:
@@ -32,18 +23,17 @@ func normalizeTime(value reflect.Value) reflect.Value {
 			return value
 		}
 		// Recurse through.
-		res := normalizeTime(value.Elem())
+		res := scrubFields(value.Elem(), blacklist)
 		// Create copy.
 		newVal := reflect.New(value.Type()).Elem()
 		newVal.Set(res.Addr())
 
 		return newVal
 	case reflect.Struct:
-		// If struct, iterate through the fields.
+		// If struct, create a map to make all fields scrub-able.
 
-		// Copy the struct.
-		newVal := reflect.New(value.Type()).Elem()
-		newVal.Set(value)
+		// Create the map.
+		newVal := reflect.MakeMap(reflect.TypeOf(map[string]any{}))
 
 		// Iterate through the fields.
 		for i := 0; i < value.NumField(); i++ {
@@ -53,13 +43,27 @@ func normalizeTime(value reflect.Value) reflect.Value {
 			}
 
 			f := value.Field(i)
+
+			// If the field name is in the blacklist, replace the value with scrubbedField.
+			// Use JSON tag if available.
+			fieldName := value.Type().Field(i).Name
+			if jsonTag := value.Type().Field(i).Tag.Get("json"); jsonTag != "" {
+				fieldName = jsonTag
+			}
+			if _, ok := blacklist[fieldName]; ok {
+				newVal.SetMapIndex(reflect.ValueOf(fieldName), scrubbedFieldVal)
+				continue
+			}
+
+			// Else, recurse through.
+
 			// Create copy.
 			newField := reflect.New(f.Type()).Elem()
 			// Recurse through.
-			res := normalizeTime(f)
+			res := scrubFields(f, blacklist)
 			newField.Set(res)
 
-			newVal.Field(i).Set(newField)
+			newVal.SetMapIndex(reflect.ValueOf(fieldName), newField)
 		}
 
 		return newVal
@@ -71,12 +75,12 @@ func normalizeTime(value reflect.Value) reflect.Value {
 		// Set empty value with the same length.
 		newVal.Set(reflect.MakeSlice(value.Type(), value.Len(), value.Len()))
 
-		// Iterate through the elements.
+		// If array/slice, iterate through the elements.
 		for i := 0; i < value.Len(); i++ {
 			// Create copy.
 			newField := reflect.New(value.Index(i).Type()).Elem()
 			// Recurse through.
-			res := normalizeTime(value.Index(i))
+			res := scrubFields(value.Index(i), blacklist)
 			newField.Set(res)
 
 			newVal.Index(i).Set(newField)
@@ -93,12 +97,19 @@ func normalizeTime(value reflect.Value) reflect.Value {
 		for _, key := range value.MapKeys() {
 			v := value.MapIndex(key)
 
+			// If the field name is in the blacklist, replace the value with scrubbedField.
+			fieldName := v.Type().Name()
+			if _, ok := blacklist[fieldName]; ok {
+				newVal.SetMapIndex(reflect.ValueOf(fieldName), scrubbedFieldVal)
+				continue
+			}
+
 			// Create copy.
 			// Make v typed first, just in case it is interface.
 			vWithType := reflect.ValueOf(v.Interface())
 			newField := reflect.New(vWithType.Type()).Elem()
 			// Recurse through.
-			res := normalizeTime(vWithType)
+			res := scrubFields(vWithType, blacklist)
 			newField.Set(res)
 
 			newVal.SetMapIndex(key, newField)
@@ -111,7 +122,7 @@ func normalizeTime(value reflect.Value) reflect.Value {
 			return value
 		}
 		// Recurse through.
-		res := normalizeTime(value.Elem())
+		res := scrubFields(value.Elem(), blacklist)
 		// Create copy.
 		newVal := reflect.New(value.Type())
 		newVal.Elem().Set(res)
