@@ -7,78 +7,10 @@ import (
 
 // NormalizeTime normalizes time.Time fields in a struct or a slice of structs to be second-only precision & in UTC.
 // It'll recurse into nested structs, arrays, and pointers.
+// It returns the normalized object.
 // To-add features:
 // - WithTimezone
 // - WithPrecision
-//func NormalizeTime(obj any) {
-//	if obj == nil {
-//		return
-//	}
-//	normalizeTime(reflect.ValueOf(obj))
-//}
-//
-//func normalizeTime(value reflect.Value) {
-//	if value.Type().String() == "time.Time" {
-//		utc := value.Interface().(time.Time).Truncate(time.Second).UTC()
-//		value.Set(reflect.ValueOf(utc))
-//		return
-//	}
-//
-//	switch value.Kind() {
-//	case reflect.Pointer:
-//		if value.IsNil() {
-//			return
-//		}
-//		normalizeTime(value.Elem())
-//	case reflect.Struct:
-//		// If struct, iterate through the fields.
-//		for i := 0; i < value.NumField(); i++ {
-//			f := value.Field(i)
-//			normalizeTime(f)
-//		}
-//	case reflect.Array, reflect.Slice:
-//		// If slice, iterate through the elements.
-//		for i := 0; i < value.Len(); i++ {
-//			normalizeTime(value.Index(i))
-//		}
-//	case reflect.Map:
-//		// If map, iterate through the elements.
-//		for _, key := range value.MapKeys() {
-//			value := value.MapIndex(key)
-//			// Normalize time.Time fields.
-//			// Map element is not settable, so we set it in place.
-//			if reflect.TypeOf(value.Interface()) == reflect.TypeOf(time.Time{}) {
-//				utc := value.Interface().(time.Time).Truncate(time.Second).UTC()
-//				value.SetMapIndex(key, reflect.ValueOf(utc))
-//				continue
-//			}
-//			// Pointer is settable, so we recurse right away.
-//			if value.Kind() == reflect.Pointer {
-//				// If pointer, go inside.
-//				if value.IsNil() {
-//					continue
-//				}
-//				normalizeTime(value.Elem())
-//				continue
-//			}
-//
-//			// Else, we need to create new value of the map element and recurse into it
-//			// since map element is not settable.
-//			newVal := reflect.New(reflect.TypeOf(value.Interface())).Elem()
-//			newVal.Set(reflect.ValueOf(value.Interface()))
-//			normalizeTime(newVal)
-//			value.SetMapIndex(key, newVal)
-//		}
-//	case reflect.Interface:
-//		if value.IsNil() {
-//			return
-//		}
-//		normalizeTime(value.Elem())
-//	default:
-//		// Do nothing.
-//	}
-//}
-
 func NormalizeTime[T any](obj any) T {
 	res := normalizeTime(reflect.ValueOf(obj))
 	return res.Interface().(T)
