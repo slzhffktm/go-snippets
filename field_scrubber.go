@@ -1,6 +1,9 @@
 package snippets
 
-import "reflect"
+import (
+	"reflect"
+	"strings"
+)
 
 const scrubbedField = "***scrubbed***"
 
@@ -37,8 +40,8 @@ func scrubFields(value reflect.Value, blacklist map[string]struct{}) reflect.Val
 
 		// Iterate through the fields.
 		for i := 0; i < value.NumField(); i++ {
-			// If anonymous, skip.
-			if value.Type().Field(i).Anonymous {
+			// If anonymous or unexported, skip.
+			if value.Type().Field(i).Anonymous || !value.Type().Field(i).IsExported() {
 				continue
 			}
 
@@ -47,15 +50,27 @@ func scrubFields(value reflect.Value, blacklist map[string]struct{}) reflect.Val
 			// If the field name is in the blacklist, replace the value with scrubbedField.
 			// Use JSON tag if available.
 			fieldName := value.Type().Field(i).Name
-			if jsonTag := value.Type().Field(i).Tag.Get("json"); jsonTag != "" {
+			// If JSON tag is "-", skip.
+			jsonTag := value.Type().Field(i).Tag.Get("json")
+			if jsonTag == "-" {
+				continue
+			}
+			if jsonTag != "" {
 				fieldName = jsonTag
 			}
-			if _, ok := blacklist[fieldName]; ok {
+			if _, ok := blacklist[strings.ToLower(fieldName)]; ok {
 				newVal.SetMapIndex(reflect.ValueOf(fieldName), scrubbedFieldVal)
 				continue
 			}
 
 			// Else, recurse through.
+
+			// If value type is interface/pointer/struct, no need to create copy.
+			if f.Kind() == reflect.Interface || f.Kind() == reflect.Ptr || f.Kind() == reflect.Struct {
+				res := scrubFields(f, blacklist)
+				newVal.SetMapIndex(reflect.ValueOf(fieldName), res)
+				continue
+			}
 
 			// Create copy.
 			newField := reflect.New(f.Type()).Elem()
@@ -97,14 +112,26 @@ func scrubFields(value reflect.Value, blacklist map[string]struct{}) reflect.Val
 		for _, key := range value.MapKeys() {
 			v := value.MapIndex(key)
 
-			// If the field name is in the blacklist, replace the value with scrubbedField.
-			fieldName := v.Type().Name()
-			if _, ok := blacklist[fieldName]; ok {
-				newVal.SetMapIndex(reflect.ValueOf(fieldName), scrubbedFieldVal)
+			// If the key is convertible to string, check if we need to scrub.
+			if value.Type().Key().ConvertibleTo(reflect.TypeOf("")) {
+				// If the field name is in the blacklist, replace the value with scrubbedField.
+				fieldName := key.String()
+				if _, ok := blacklist[strings.ToLower(fieldName)]; ok {
+					newVal.SetMapIndex(reflect.ValueOf(fieldName), scrubbedFieldVal)
+					continue
+				}
+			}
+
+			// If not, recurse through.
+
+			// If value type is interface/pointer/struct, no need to create copy.
+			if v.Kind() == reflect.Interface || v.Kind() == reflect.Ptr || v.Kind() == reflect.Struct {
+				res := scrubFields(v, blacklist)
+				newVal.SetMapIndex(key, res)
 				continue
 			}
 
-			// Create copy.
+			// Else, create copy.
 			// Make v typed first, just in case it is interface.
 			vWithType := reflect.ValueOf(v.Interface())
 			newField := reflect.New(vWithType.Type()).Elem()
