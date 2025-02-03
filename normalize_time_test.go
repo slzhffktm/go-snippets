@@ -142,7 +142,7 @@ func TestNormalizeTime(t *testing.T) {
 		},
 	}
 
-	res := snippets.NormalizeTime[someStruct](obj)
+	res := snippets.NormalizeTime(obj)
 
 	// Assert res time fields are normalized.
 	res.assertTimeFields(t, timeNow.Truncate(time.Second).UTC())
@@ -154,7 +154,7 @@ func TestNormalizeTime_TimeParam(t *testing.T) {
 	timeNow := time.Now().Local()
 	obj := timeNow
 
-	res := snippets.NormalizeTime[time.Time](obj)
+	res := snippets.NormalizeTime(obj)
 
 	// Assert res is normalized.
 	require.Equal(t, timeNow.Truncate(time.Second).UTC(), res)

@@ -11,9 +11,15 @@ import (
 // To-add features:
 // - WithTimezone
 // - WithPrecision
-func NormalizeTime[T any](obj any) T {
-	res := normalizeTime(reflect.ValueOf(obj))
-	return res.Interface().(T)
+func NormalizeTime[T any](obj T) (res T) {
+	// Return value as-is if we panic.
+	defer func() {
+		if r := recover(); r != nil {
+			res = obj
+		}
+	}()
+	normalized := normalizeTime(reflect.ValueOf(obj))
+	return normalized.Interface().(T)
 }
 
 func normalizeTime(value reflect.Value) reflect.Value {
